@@ -4,7 +4,7 @@ import telebot
 from io import StringIO
 
 # Load your Telegram bot token from the environment variables
-API_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+API_TOKEN = os.getenv('7221804989:AAGutR7VFeP04rKDVSlrrb7blm38gwttpWA')
 bot = telebot.TeleBot(API_TOKEN)
 
 # Define regex patterns for locations
