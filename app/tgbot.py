@@ -2,6 +2,7 @@ import os
 import re
 import telebot
 from io import StringIO
+from flask import Flask
 
 # Load your Telegram bot token from the environment variables
 API_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -69,6 +70,20 @@ def handle_message(message):
     else:
         bot.reply_to(message, "No relevant data found in the message.")
 
-# Start the bot
+# Create a simple Flask server for health checks
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Bot is running"
+
+# Start the bot and the Flask server
 if __name__ == "__main__":
-    bot.polling()
+    from threading import Thread
+
+    # Start the Telegram bot in a separate thread
+    Thread(target=lambda: bot.polling()).start()
+
+    # Start the Flask server
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port)
