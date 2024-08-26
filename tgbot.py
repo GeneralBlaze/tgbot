@@ -1,7 +1,13 @@
-from telegram.ext import Updater, MessageHandler, Filters
+import os
 import re
+import telebot
+from io import StringIO
 
-# Define regex patterns
+# Load your Telegram bot token from the environment variables
+API_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+bot = telebot.TeleBot(API_TOKEN)
+
+# Define regex patterns for locations
 patterns = {
     "Onitsha": re.compile(r'Onitsha', re.IGNORECASE),
     "Aba": re.compile(r'Aba', re.IGNORECASE),
@@ -13,71 +19,54 @@ patterns = {
     "Owerri": re.compile(r'Owerri', re.IGNORECASE),
 }
 
-# Function to fill values based on the location
-def fill_values(location):
-    if patterns["Onitsha"].search(location):
-        return 70000, 240, 1030
-    elif patterns["Aba"].search(location):
-        return 50000, 240, 1030
-    elif patterns["Owerri"].search(location):
-        return 50000, 150, 1030
-    elif patterns["Abuja"].search(location):
-        return 470800, 1200, 1030
-    elif patterns["Kano"].search(location):
-        return 470800, 1200, 1030
-    elif patterns["Warri"].search(location):
-        return 70000, 340, 1030
-    elif patterns["Igbariam"].search(location):
-        return 70000, 240, 1030
-    elif patterns["Ph"].search(location):
-        return 25000, 75, 1030
-    else:
-        return None
+# Define the rates and costs based on location
+location_details = {
+    "Onitsha": {"fare": 70000, "diesel_liters": 240, "rate": 1030},
+    "Aba": {"fare": 50000, "diesel_liters": 240, "rate": 1030},
+    "Owerri": {"fare": 50000, "diesel_liters": 150, "rate": 1030},
+    "Abuja": {"fare": 470800, "diesel_liters": 1200, "rate": 1030},
+    "Kano": {"fare": 470800, "diesel_liters": 1200, "rate": 1030},
+    "Warri": {"fare": 70000, "diesel_liters": 340, "rate": 1030},
+    "Igbariam": {"fare": 70000, "diesel_liters": 240, "rate": 1030},
+    "Ph": {"fare": 25000, "diesel_liters": 75, "rate": 1030},
+}
 
-# Function to process the incoming message text
-def process_text(text):
-    lines = text.strip().splitlines()
-    processed_data = []
+# Function to calculate diesel cost
+def calculate_diesel_cost(liters, rate):
+    return liters * rate
+
+# Function to process the received message and return the formatted output
+def process_message(message):
+    lines = message.strip().splitlines()
+    result = StringIO()
     serial_number = 1
-    
+
     for line in lines:
-        match = re.search(r'--(\d+\*\d+)--', line)
-        if match:
-            customer = line.split('--')[0]
-            location = line.split('--')[-1]
-            fare, diesel_ltr, unit_price = fill_values(location)
-            
-            if fare:
-                for next_line in lines[lines.index(line) + 1:]:
-                    if not next_line or next_line.startswith("ETA") or next_line.startswith("Total"):
-                        break
-                    # Append to processed data
-                    processed_data.append(
-                        f"{serial_number}\t{customer}\t{fare}\t{diesel_ltr}\t{unit_price}\t\t{next_line}\t\t"
-                    )
-                    serial_number += 1
-    
-    return "\n".join(processed_data)
+        for location, pattern in patterns.items():
+            if pattern.search(line):
+                customer = line.split('--')[0].strip()
+                details = location_details[location]
+                diesel_cost = calculate_diesel_cost(details["diesel_liters"], details["rate"])
 
-# Function to handle messages
-def handle_message(update, context):
-    text = update.message.text
-    processed_text = process_text(text)
-    context.bot.send_message(chat_id=update.effective_chat.id, text=f"```\n{processed_text}\n```", parse_mode='Markdown')
+                # Write the formatted line
+                result.write(
+                    f"{serial_number}\t{customer}\t{details['fare']}\t{details['diesel_liters']}\t"
+                    f"{details['rate']}\t{diesel_cost}\tDRIVER_NAME\t40FT EXP. N\n"
+                )
+                serial_number += 1
+                break
 
-# Main function to run the bot
-def main():
-    TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'  # Replace with your bot token
+    return result.getvalue()
 
-    updater = Updater(token=TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+# Handle incoming text messages
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    response = process_message(message.text)
+    if response:
+        bot.reply_to(message, f"Copy the following data and paste it into your Excel sheet:\n\n{response}")
+    else:
+        bot.reply_to(message, "No relevant data found in the message.")
 
-    # Add handler to process messages
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-    # Start the bot
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
+# Start the bot
+if __name__ == "__main__":
+    bot.polling()
