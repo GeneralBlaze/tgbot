@@ -24,15 +24,18 @@ patterns = {
 
 # Define the rates and costs based on location
 location_details = {
-    "Onitsha": {"fare": 70000, "diesel_liters": 240, "rate": 1030},
-    "Aba": {"fare": 50000, "diesel_liters": 240, "rate": 1030},
-    "Owerri": {"fare": 50000, "diesel_liters": 150, "rate": 1030},
-    "Abuja": {"fare": 470800, "diesel_liters": 1200, "rate": 1030},
-    "Kano": {"fare": 470800, "diesel_liters": 1200, "rate": 1030},
-    "Warri": {"fare": 70000, "diesel_liters": 340, "rate": 1030},
-    "Igbariam": {"fare": 70000, "diesel_liters": 240, "rate": 1030},
-    "Ph": {"fare": 25000, "diesel_liters": 75, "rate": 1030},
+    "Onitsha": {"fare": 70000, "diesel_liters": 240},
+    "Aba": {"fare": 50000, "diesel_liters": 240},
+    "Owerri": {"fare": 50000, "diesel_liters": 150},
+    "Abuja": {"fare": 470800, "diesel_liters": 1200},
+    "Kano": {"fare": 470800, "diesel_liters": 1200},
+    "Warri": {"fare": 70000, "diesel_liters": 340},
+    "Igbariam": {"fare": 70000, "diesel_liters": 240},
+    "Ph": {"fare": 25000, "diesel_liters": 75},
 }
+
+# Global variable to store diesel rate
+diesel_rate = None
 
 # Function to calculate diesel cost
 def calculate_diesel_cost(liters, rate):
@@ -40,21 +43,32 @@ def calculate_diesel_cost(liters, rate):
 
 # Function to process the received message and return the formatted output
 def process_message(message):
+    global diesel_rate
+
+    if diesel_rate is None:
+        return "Please provide the current diesel rate first."
+
     lines = message.strip().splitlines()
     result = StringIO()
     serial_number = 1
 
+    current_header = None
+
     for line in lines:
+        if '--' in line:
+            current_header = line.strip()
+            result.write(f"\n|     | **{current_header}** |     |     |     |     |\n")
+            continue
+        
         for location, pattern in patterns.items():
             if pattern.search(line):
-                customer = line.split('--')[0].strip()
+                container_number = line.strip()
                 details = location_details[location]
-                diesel_cost = calculate_diesel_cost(details["diesel_liters"], details["rate"])
+                diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
 
-                # Write the formatted line
                 result.write(
-                    f"{serial_number}\t{customer}\t{details['fare']}\t{details['diesel_liters']}\t"
-                    f"{details['rate']}\t{diesel_cost}\tDRIVER_NAME\t40FT EXP. N\n"
+                    f"| {serial_number} | {container_number} | {details['fare']} | "
+                    f"{details['diesel_liters']} | {diesel_rate} | {diesel_cost} |\n"
                 )
                 serial_number += 1
                 break
@@ -62,6 +76,19 @@ def process_message(message):
     return result.getvalue()
 
 # Handle incoming text messages
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    bot.reply_to(message, "Welcome! Please send the diesel rate using /rate command first, then send the container details.")
+
+@bot.message_handler(commands=['rate'])
+def set_diesel_rate(message):
+    global diesel_rate
+    try:
+        diesel_rate = int(message.text.split()[1])
+        bot.reply_to(message, f"Diesel rate set to {diesel_rate}. Now you can send container details.")
+    except (IndexError, ValueError):
+        bot.reply_to(message, "Please provide a valid diesel rate. Usage: /rate <value>")
+
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     response = process_message(message.text)
