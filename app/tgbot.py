@@ -76,11 +76,12 @@ def process_message(message):
 
     return result.getvalue()
 
-# Handle incoming text messages
+# Handle the /start and /help commands
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, "Welcome! Please send the diesel rate using /rate command first, then send the container details.")
 
+# Handle the /rate command
 @bot.message_handler(commands=['rate'])
 def set_diesel_rate(message):
     global diesel_rate
@@ -90,6 +91,7 @@ def set_diesel_rate(message):
     except (IndexError, ValueError):
         bot.reply_to(message, "Please provide a valid diesel rate. Usage: /rate <value>")
 
+# Handle any text messages that aren't commands
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     response = process_message(message.text)
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     from threading import Thread
 
     # Start the Telegram bot in a separate thread
-    Thread(target=lambda: bot.polling()).start()
+    Thread(target=lambda: bot.polling(none_stop=True)).start()
 
     # Start the Flask server
     port = int(os.environ.get('PORT', 8000))
