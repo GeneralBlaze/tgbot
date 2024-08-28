@@ -60,18 +60,19 @@ def process_message(message):
             result.write(f"\n|     | **{current_header}** |     |     |     |     |\n")
             continue
         
-        for location, pattern in patterns.items():
-            if pattern.search(line):
-                container_number = line.strip()
-                details = location_details[location]
-                diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
+        if line.strip():  # If the line is not empty, process it
+            for location, pattern in patterns.items():
+                if pattern.search(line):
+                    container_number = line.strip()
+                    details = location_details[location]
+                    diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
 
-                result.write(
-                    f"| {serial_number} | {container_number} | {details['fare']} | "
-                    f"{details['diesel_liters']} | {diesel_rate} | {diesel_cost} |\n"
-                )
-                serial_number += 1
-                break
+                    result.write(
+                        f"| {serial_number} | {container_number} | {details['fare']} | "
+                        f"{details['diesel_liters']} | {diesel_rate} | {diesel_cost} |\n"
+                    )
+                    serial_number += 1
+                    break
 
     return result.getvalue()
 
