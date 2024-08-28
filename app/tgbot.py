@@ -46,20 +46,28 @@ def process_message(message):
     lines = message.strip().splitlines()
     result = StringIO()
     serial_number = 1
+    processing_customer = False
 
     for line in lines:
-        for location, pattern in patterns.items():
-            if pattern.search(line):
-                customer = line.split('--')[0].strip()
-                details = location_details[location]
-                diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
+        # Skip lines until a customer entry is found
+        if not processing_customer:
+            for location, pattern in patterns.items():
+                if pattern.search(line):
+                    processing_customer = True
+                    customer = line.split('--')[0].strip()
+                    details = location_details[location]
+                    diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
 
-                result.write(
-                    f"{serial_number}\t{line}\t{details['fare']}\t{details['diesel_liters']}\t"
-                    f"{diesel_rate}\t{diesel_cost}\n"
-                )
-                serial_number += 1
-                break
+                    result.write(
+                        f"{serial_number}\t{line}\t{details['fare']}\t{details['diesel_liters']}\t"
+                        f"{diesel_rate}\t{diesel_cost}\n"
+                    )
+                    serial_number += 1
+                    break
+        else:
+            # Stop processing when the next customer entry is found
+            if any(pattern.search(line) for pattern in patterns.values()):
+                processing_customer = False
 
     return result.getvalue()
 
