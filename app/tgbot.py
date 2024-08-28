@@ -22,7 +22,7 @@ patterns = {
     "Owerri": re.compile(r'Owerri', re.IGNORECASE),
 }
 
-# Define the rates and costs based on location
+# Define the fares and diesel liters based on location
 location_details = {
     "Onitsha": {"fare": 70000, "diesel_liters": 240},
     "Aba": {"fare": 50000, "diesel_liters": 240},
@@ -46,7 +46,7 @@ def process_message(message):
     global diesel_rate
 
     if diesel_rate is None:
-        return "Please provide the current diesel rate first."
+        return "Please set the diesel rate first using /rate <value>."
 
     lines = message.strip().splitlines()
     result = StringIO()
@@ -79,7 +79,7 @@ def process_message(message):
 # Handle the /start and /help commands
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "Welcome! Please send the diesel rate using /rate command first, then send the container details.")
+    bot.reply_to(message, "Welcome! Please set the diesel rate using /rate <value>, then send the container details.")
 
 # Handle the /rate command
 @bot.message_handler(commands=['rate'])
