@@ -62,7 +62,7 @@ def process_message(message):
         
         if line.strip():  # If the line is not empty, process it
             for location, pattern in patterns.items():
-                if pattern.search(line):
+                if pattern.search(current_header):  # Match header location
                     container_number = line.strip()
                     details = location_details[location]
                     diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
