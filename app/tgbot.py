@@ -22,7 +22,7 @@ patterns = {
     "Owerri": re.compile(r'Owerri', re.IGNORECASE),
 }
 
-# Define the fares and diesel liters based on location
+# Define the rates and costs based on location
 location_details = {
     "Onitsha": {"fare": 70000, "diesel_liters": 240},
     "Aba": {"fare": 50000, "diesel_liters": 240},
@@ -34,7 +34,7 @@ location_details = {
     "Ph": {"fare": 25000, "diesel_liters": 75},
 }
 
-# Global variable to store diesel rate
+# Store the diesel rate globally to use after the rate prompt
 diesel_rate = None
 
 # Function to calculate diesel cost
@@ -43,62 +43,50 @@ def calculate_diesel_cost(liters, rate):
 
 # Function to process the received message and return the formatted output
 def process_message(message):
-    global diesel_rate
-
-    if diesel_rate is None:
-        return "Please set the diesel rate first using /rate <value>."
-
     lines = message.strip().splitlines()
     result = StringIO()
     serial_number = 1
 
-    current_header = None
-
     for line in lines:
-        if '--' in line:
-            current_header = line.strip()
-            result.write(f"\n|     | **{current_header}** |     |     |     |     |\n")
-            continue
-        
-        if line.strip():  # If the line is not empty, process it
-            for location, pattern in patterns.items():
-                if pattern.search(current_header):  # Match header location
-                    container_number = line.strip()
-                    details = location_details[location]
-                    diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
+        for location, pattern in patterns.items():
+            if pattern.search(line):
+                customer = line.split('--')[0].strip()
+                details = location_details[location]
+                diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
 
-                    result.write(
-                        f"| {serial_number} | {container_number} | {details['fare']} | "
-                        f"{details['diesel_liters']} | {diesel_rate} | {diesel_cost} |\n"
-                    )
-                    serial_number += 1
-                    break
+                result.write(
+                    f"{serial_number}\t{line}\t{details['fare']}\t{details['diesel_liters']}\t"
+                    f"{diesel_rate}\t{diesel_cost}\n"
+                )
+                serial_number += 1
+                break
 
     return result.getvalue()
 
-# Handle the /start and /help commands
-@bot.message_handler(commands=['start', 'help'])
-def send_welcome(message):
-    bot.reply_to(message, "Welcome! Please set the diesel rate using /rate <value>, then send the container details.")
+# Handle incoming text messages
+@bot.message_handler(func=lambda message: True, content_types=['text'])
+def handle_message(message):
+    global diesel_rate
 
-# Handle the /rate command
-@bot.message_handler(commands=['rate'])
+    if diesel_rate is None:
+        bot.reply_to(message, "What is the rate of diesel?")
+        bot.register_next_step_handler(message, set_diesel_rate)
+    else:
+        response = process_message(message.text)
+        if response:
+            bot.reply_to(message, f"Copy the following data and paste it into your Excel sheet:\n\n{response}")
+        else:
+            bot.reply_to(message, "No relevant data found in the message.")
+
+# Function to set the diesel rate after the prompt
 def set_diesel_rate(message):
     global diesel_rate
-    try:
-        diesel_rate = int(message.text.split()[1])
-        bot.reply_to(message, f"Diesel rate set to {diesel_rate}. Now you can send container details.")
-    except (IndexError, ValueError):
-        bot.reply_to(message, "Please provide a valid diesel rate. Usage: /rate <value>")
 
-# Handle any text messages that aren't commands
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    response = process_message(message.text)
-    if response:
-        bot.reply_to(message, f"Copy the following data and paste it into your Excel sheet:\n\n{response}")
-    else:
-        bot.reply_to(message, "No relevant data found in the message.")
+    try:
+        diesel_rate = float(message.text.strip())
+        bot.reply_to(message, "Rate set! Now, please resend the data to be processed.")
+    except ValueError:
+        bot.reply_to(message, "Please enter a valid number for the diesel rate.")
 
 # Create a simple Flask server for health checks
 app = Flask(__name__)
@@ -112,7 +100,7 @@ if __name__ == "__main__":
     from threading import Thread
 
     # Start the Telegram bot in a separate thread
-    Thread(target=lambda: bot.polling(none_stop=True)).start()
+    Thread(target=lambda: bot.polling()).start()
 
     # Start the Flask server
     port = int(os.environ.get('PORT', 8000))
