@@ -44,37 +44,48 @@ def calculate_diesel_cost(liters, rate):
 # Function to process the received message and return the formatted output
 def process_message(message):
     lines = message.strip().splitlines()
+
+    # Filter out irrelevant lines (like ETA or Total)
+    filtered_lines = []
+    for line in lines:
+        if not line.strip() or line.strip().startswith("ETA") or line.strip().startswith("Total"):
+            continue
+        filtered_lines.append(line.strip())
+
     result = StringIO()
     serial_number = 1
     processing_customer = False
+    current_customer = ""
+    current_location = ""
 
-    for line in lines:
-        line = line.strip()
-        if not processing_customer:
+    # Process the filtered lines
+    for line in filtered_lines:
+        # Check if the line indicates the start of a new customer block
+        if "--" in line and any(pattern.search(line) for pattern in patterns.values()):
+            # Write out the previous customer block if any
+            if processing_customer:
+                result.write("\n")
+            
+            # Start a new customer block
+            current_customer = line.strip()
+            processing_customer = True
+            result.write(f"{current_customer}\n")
+            continue
+        
+        # Process container numbers within a customer block
+        if processing_customer:
             for location, pattern in patterns.items():
-                if pattern.search(line):
-                    processing_customer = True
-                    customer_line = line
+                if pattern.search(current_customer):
                     details = location_details[location]
-                    diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
+                    diesel_cost = calculate_diesel_cost(details["diesel_liters"], details["rate"])
 
+                    # Write out the container details
                     result.write(
-                        f"{serial_number}\t{customer_line}\t{details['fare']}\t{details['diesel_liters']}\t"
-                        f"{diesel_rate}\t{diesel_cost}\n"
+                        f"{serial_number}\t{line.strip()}\t{details['fare']}\t{details['diesel_liters']}\t"
+                        f"{details['rate']}\t{diesel_cost}\n"
                     )
                     serial_number += 1
                     break
-        else:
-            # Check if line contains a container number and process it
-            if re.match(r'^[A-Z]{4}\s\d{7}$', line):
-                result.write(
-                    f"{serial_number}\t{line}\t{details['fare']}\t{details['diesel_liters']}\t"
-                    f"{diesel_rate}\t{diesel_cost}\n"
-                )
-                serial_number += 1
-            # Stop processing if "ETA" or "Total" is encountered
-            elif line.startswith("ETA") or line.startswith("Total"):
-                processing_customer = False
 
     return result.getvalue()
 
