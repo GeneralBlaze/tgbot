@@ -49,22 +49,31 @@ def process_message(message):
     processing_customer = False
 
     for line in lines:
+        line = line.strip()
         if not processing_customer:
             for location, pattern in patterns.items():
                 if pattern.search(line):
                     processing_customer = True
-                    customer = line.split('--')[0].strip()
+                    customer_line = line
                     details = location_details[location]
                     diesel_cost = calculate_diesel_cost(details["diesel_liters"], diesel_rate)
 
                     result.write(
-                        f"{serial_number}\t{line}\t{details['fare']}\t{details['diesel_liters']}\t"
+                        f"{serial_number}\t{customer_line}\t{details['fare']}\t{details['diesel_liters']}\t"
                         f"{diesel_rate}\t{diesel_cost}\n"
                     )
                     serial_number += 1
                     break
         else:
-            if any(pattern.search(line) for pattern in patterns.values()):
+            # Check if line contains a container number and process it
+            if re.match(r'^[A-Z]{4}\s\d{7}$', line):
+                result.write(
+                    f"{serial_number}\t{line}\t{details['fare']}\t{details['diesel_liters']}\t"
+                    f"{diesel_rate}\t{diesel_cost}\n"
+                )
+                serial_number += 1
+            # Stop processing if "ETA" or "Total" is encountered
+            elif line.startswith("ETA") or line.startswith("Total"):
                 processing_customer = False
 
     return result.getvalue()
