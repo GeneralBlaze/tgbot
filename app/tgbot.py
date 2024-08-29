@@ -22,7 +22,7 @@ patterns = {
     "Owerri": re.compile(r'Owerri', re.IGNORECASE),
 }
 
-# Define the rates and costs based on location
+# Define the fares and diesel liters based on location
 location_details = {
     "Onitsha": {"fare": 70000, "diesel_liters": 240},
     "Aba": {"fare": 50000, "diesel_liters": 240},
@@ -49,7 +49,6 @@ def process_message(message):
     processing_customer = False
 
     for line in lines:
-        # Skip lines until a customer entry is found
         if not processing_customer:
             for location, pattern in patterns.items():
                 if pattern.search(line):
@@ -65,7 +64,6 @@ def process_message(message):
                     serial_number += 1
                     break
         else:
-            # Stop processing when the next customer entry is found
             if any(pattern.search(line) for pattern in patterns.values()):
                 processing_customer = False
 
